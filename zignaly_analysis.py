@@ -14,6 +14,7 @@ matplotlib.use('TkAgg')  # Added to prevent NSInvalidArgumentException
 from matplotlib import pyplot as plt
 import numpy.polynomial.polynomial as poly
 import pandas as pd
+import seaborn as sns
 
 
 def get_data_from_csv(filename):
@@ -22,6 +23,8 @@ def get_data_from_csv(filename):
 
     :param filename: (relative) path to CSV file of backtest results
     :return: pandas dataframe containing these trading results
+
+    TODO Finish this function as soon as I have a CSV file available
     """
 
     df = pd.read_csv(filename)
@@ -102,56 +105,40 @@ def get_data_from_html(filename):
     return pd.DataFrame(parsed_table)
 
 
-def draw_scatterplots(df, column_pairs):
-    """Draw scatterplots for the given column_pairs in df
+def draw_lmplots(data, combinations):
+    """Draw Seaborn's lmplots from data for all combinations of
+    variables.
 
-    :param df: pandas dataframe containing trading results
-    :param column_pairs: list of tuples of column pairs (i.e. x and y)
-    :return: none
+    :param data: A dataframe containing all columns mentioned in combinations
+    :param combinations: A list of tuples of column threesomes, where:
+                            0 = the independent variable
+                            1 = the dependent variable
+                            2 = a categorical to be used for colors
+    :return: Nothing, just draw to plt
     """
 
-    num_plots = len(column_pairs)
+    num_plots = len(combinations)
 
-    if num_plots > 16:
-        raise ValueError('Too many subplots to fit in your screen, select less')
+    # if num_plots > 16:
+    #     raise ValueError('Too many subplots to fit in your screen, select less')
 
     num_columns = int(math.floor(math.sqrt(num_plots)))
     num_rows = int(math.ceil(num_plots / num_columns))
     count = 1
 
-    for pair in column_pairs:
+    for combination in combinations:
         plt.subplot(num_rows, num_columns, count)
 
-        x = df[pair[0]]
-        plt.xlabel(pair[0])
-        plt.xticks(rotation=45)
-        y = df[pair[1]]
-        plt.ylabel(pair[1])
-
-        if pair[1] in [
-            'Strategy vs Market',
-            'Sharpe']:
-            plt.axhline(0, color='r', zorder=-1)
-
-
-        plt.scatter(x, y, color='black')
-
-        if ((x.dtype in ['int64', 'float64']) & (
-                y.dtype in ['int64', 'float64'])):
-
-            # Add linear trendline if possible
-            z1 = poly.polyfit(x, y, 1)
-            p1 = poly.Polynomial(z1)
-            plt.plot(x, p1(x), 'g--')
-
-            # Add quadratic trendline if possible
-            z2 = poly.polyfit(x, y, 2)
-            p2 = poly.Polynomial(z2)
-            plt.plot(x, p2(x), 'y--')
+        sns.lmplot(
+            x=combination[0],
+            y=combination[1],
+            data=data,
+            hue=combination[2],
+            col='Provider',  # TODO Make this less hacky
+            col_wrap=2,
+            fit_reg=False)
 
         count += 1
-
-    plt.show()
 
 
 if __name__ == '__main__':
@@ -160,8 +147,8 @@ if __name__ == '__main__':
 
     print('zignaly_analysis: Reading {}...'.format(input_file))
 
-    # Get the file extension to properly parse it
-    _, input_file_ext = os.path.splitext(input_file)
+    # Get the file extension to parse the input_file accordingly
+    input_file_name, input_file_ext = os.path.splitext(input_file)
 
     if (input_file_ext == '.csv'):
         data = get_data_from_csv(input_file)
@@ -174,23 +161,40 @@ if __name__ == '__main__':
         '\n\t'.join(list(data))
     ))
 
-    scatter_x_axes = [
+    # Set the independent variables you'd like to plot in PyPlot here
+    independent_vars = [
+        'Duration (s)']
+
+    # And the dependent ones here
+    dependent_vars = [
+        'Profit (%)']
+
+    # And possible modifying categoricals here
+    modifiers = [
         'Asset',
-        'Duration (s)',
         'Provider',
         'Status']
 
-    scatter_y_axes = [
-        'Profit (%)'
-    ]
+    combinations = list(itertools.product(
+        independent_vars,
+        dependent_vars,
+        modifiers))
 
     print('zignaly_analysis: Drawing scatter plots for selected column '
           'combinations...')
 
-    draw_scatterplots(
-        data,
-        list(itertools.product(
-            scatter_x_axes,
-            scatter_y_axes)))
+    # Setup PyPlot
+    plt.tight_layout()
+    sns.set(style='darkgrid')
+
+    # Draw scatterplots
+    draw_lmplots(data, combinations)
+
+    # Save the resulting plots to file
+    plt.savefig(
+        input_file_name + '.png',
+        dpi=72,
+        bbox_inches='tight',
+        pad_inches=1)
 
     print('zignaly_analysis: Finished running module. Now what?')

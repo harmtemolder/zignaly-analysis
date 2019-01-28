@@ -2,7 +2,7 @@
 
 ## Install dependencies:
 ```
-pip install bs4 matplotlib numpy pandas
+pip install bs4 matplotlib numpy pandas seaborn
 ```
 
 ## How to run this:
